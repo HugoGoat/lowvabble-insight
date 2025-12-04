@@ -52,11 +52,30 @@ export default function Chat() {
       }
 
       const data = await response.json();
+      console.log('n8n response:', JSON.stringify(data, null, 2));
+      
+      // Handle various possible response structures from n8n
+      let responseContent = '';
+      if (typeof data === 'string') {
+        responseContent = data;
+      } else if (data.output) {
+        responseContent = data.output;
+      } else if (data.text) {
+        responseContent = data.text;
+      } else if (data.message) {
+        responseContent = data.message;
+      } else if (data.response) {
+        responseContent = data.response;
+      } else if (Array.isArray(data) && data.length > 0) {
+        responseContent = data[0].output || data[0].text || data[0].message || JSON.stringify(data[0]);
+      } else {
+        responseContent = JSON.stringify(data);
+      }
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.output || data.text || data.message || data.response || 'Je n\'ai pas pu générer de réponse.',
+        content: responseContent || 'Je n\'ai pas pu générer de réponse.',
       };
 
       setMessages(prev => [...prev, assistantMessage]);
