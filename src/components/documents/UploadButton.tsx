@@ -72,16 +72,17 @@ export default function UploadButton({ onUploadComplete }: UploadButtonProps) {
           description: `"${file.name}" a été ajouté avec succès.`,
         });
 
-        // Trigger n8n ingestion workflow
+        // Trigger n8n ingestion workflow with file
         try {
+          const formData = new FormData();
+          formData.append('data', file);
+          formData.append('user_id', user.id);
+          formData.append('file_path', filePath);
+          formData.append('file_name', file.name);
+
           await fetch('https://n8n.srv755107.hstgr.cloud/webhook/ffbbfdb5-c92b-4ee1-8ada-6065344c4925', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: user.id,
-              file_path: filePath,
-              file_name: file.name,
-            }),
+            body: formData,
           });
         } catch (webhookError) {
           console.log('Webhook notification sent');
