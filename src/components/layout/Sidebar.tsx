@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/contexts/PermissionsContext';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
@@ -8,22 +9,36 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users,
+  Shield
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: FileText, label: 'Documents', href: '/documents' },
-  { icon: MessageSquare, label: 'Chatbot', href: '/chat' },
-  { icon: Settings, label: 'Paramètres', href: '/settings' },
-];
+const roleLabels: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin: 'Admin',
+  editor: 'Éditeur',
+  reader: 'Lecteur',
+};
 
 export default function Sidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { role, canManageUsers, canAccessSettings } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
+
+  const navItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', show: true },
+    { icon: FileText, label: 'Documents', href: '/documents', show: true },
+    { icon: MessageSquare, label: 'Chatbot', href: '/chat', show: true },
+    { icon: Users, label: 'Équipe', href: '/team', show: canManageUsers },
+    { icon: Settings, label: 'Paramètres', href: '/settings', show: canAccessSettings },
+  ];
+
+  const visibleItems = navItems.filter(item => item.show);
 
   return (
     <aside 
@@ -64,7 +79,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = location.pathname === item.href;
           return (
             <Link
@@ -88,8 +103,16 @@ export default function Sidebar() {
       {/* User & Logout */}
       <div className="p-4 border-t border-border space-y-3">
         {!collapsed && user && (
-          <div className="px-3 py-2">
+          <div className="px-3 py-2 space-y-1">
             <p className="text-sm font-medium truncate">{user.email}</p>
+            {role && (
+              <div className="flex items-center gap-1.5">
+                <Shield className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
+                  {roleLabels[role] || role}
+                </span>
+              </div>
+            )}
           </div>
         )}
         <Button
