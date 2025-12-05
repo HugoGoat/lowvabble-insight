@@ -28,9 +28,9 @@ interface Document {
 
 interface DocumentCardProps {
   document: Document;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
   onMove?: (id: string) => void;
-  isDeleting: boolean;
+  isDeleting?: boolean;
 }
 
 const typeIcons: Record<string, typeof FileText> = {
@@ -98,32 +98,36 @@ export default function DocumentCard({ document, onDelete, onMove, isDeleting }:
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {onMove && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onMove(document.id)}
-                className="text-muted-foreground hover:text-primary"
-                title="Déplacer"
-              >
-                <FolderInput className="w-4 h-4" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onDelete(document.id)}
-              disabled={isDeleting}
-              className="text-muted-foreground hover:text-destructive"
-            >
-              {isDeleting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4" />
+          {(onMove || onDelete) && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onMove && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onMove(document.id)}
+                  className="text-muted-foreground hover:text-primary"
+                  title="Déplacer"
+                >
+                  <FolderInput className="w-4 h-4" />
+                </Button>
               )}
-            </Button>
-          </div>
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onDelete(document.id)}
+                  disabled={isDeleting}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/contexts/PermissionsContext';
 import AppLayout from '@/components/layout/AppLayout';
 import ChatMessage from '@/components/chat/ChatMessage';
 import InputBar from '@/components/chat/InputBar';
@@ -7,9 +8,15 @@ import ConversationSidebar from '@/components/chat/ConversationSidebar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, Bot, Loader2, Menu } from 'lucide-react';
+import { MessageSquare, Bot, Loader2, Menu, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Message {
   id: string;
@@ -26,6 +33,7 @@ interface Conversation {
 
 export default function Chat() {
   const { user } = useAuth();
+  const { canExportConversations } = usePermissions();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -160,7 +168,6 @@ export default function Chat() {
       }
 
       const data = await response.json();
-      console.log('n8n response:', JSON.stringify(data, null, 2));
       
       let responseContent = '';
       if (typeof data === 'string') {
@@ -236,6 +243,47 @@ export default function Chat() {
     setSidebarOpen(false);
   };
 
+  const handleExportConversation = (format: 'json' | 'txt' | 'md') => {
+    if (!activeConversationId || messages.length === 0) return;
+
+    const conversation = conversations.find(c => c.id === activeConversationId);
+    const title = conversation?.title || 'conversation';
+    const timestamp = new Date().toISOString().split('T')[0];
+
+    let content = '';
+    let filename = '';
+    let mimeType = '';
+
+    if (format === 'json') {
+      content = JSON.stringify({
+        title: conversation?.title,
+        exported_at: new Date().toISOString(),
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      }, null, 2);
+      filename = `${title}-${timestamp}.json`;
+      mimeType = 'application/json';
+    } else if (format === 'txt') {
+      content = messages.map(m => `[${m.role.toUpperCase()}]\n${m.content}`).join('\n\n---\n\n');
+      filename = `${title}-${timestamp}.txt`;
+      mimeType = 'text/plain';
+    } else {
+      content = `# ${conversation?.title || 'Conversation'}\n\n` +
+        messages.map(m => `**${m.role === 'user' ? 'Vous' : 'Assistant'}:**\n\n${m.content}`).join('\n\n---\n\n');
+      filename = `${title}-${timestamp}.md`;
+      mimeType = 'text/markdown';
+    }
+
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast({ title: 'Conversation exportée' });
+  };
+
   const sidebarContent = (
     <ConversationSidebar
       conversations={conversations}
@@ -274,10 +322,33 @@ export default function Chat() {
               <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
                 <MessageSquare className="w-5 h-5 text-primary-foreground" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="font-semibold">Chatbot RAG</h1>
                 <p className="text-sm text-muted-foreground">Interrogez vos documents</p>
               </div>
+
+              {/* Export button */}
+              {canExportConversations && activeConversationId && messages.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Exporter
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExportConversation('json')}>
+                      Format JSON
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportConversation('txt')}>
+                      Format Texte
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportConversation('md')}>
+                      Format Markdown
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
 
