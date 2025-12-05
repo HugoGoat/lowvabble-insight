@@ -139,12 +139,19 @@ export default function Chat() {
     await saveMessage(convId, 'user', content);
 
     try {
+      // Build conversation history for n8n context
+      const conversationHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const response = await fetch('https://n8n.srv755107.hstgr.cloud/webhook/baa3f90a-7116-440a-9d5f-06e44505094e', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: content,
           user_id: user.id,
+          conversation_history: conversationHistory,
         }),
       });
 
