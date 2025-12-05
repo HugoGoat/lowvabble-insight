@@ -11,7 +11,8 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  Loader2
+  Loader2,
+  FolderInput
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,11 +23,13 @@ interface Document {
   file_size: number;
   status: string;
   created_at: string;
+  folder_id?: string | null;
 }
 
 interface DocumentCardProps {
   document: Document;
   onDelete: (id: string) => void;
+  onMove?: (id: string) => void;
   isDeleting: boolean;
 }
 
@@ -52,7 +55,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function DocumentCard({ document, onDelete, isDeleting }: DocumentCardProps) {
+export default function DocumentCard({ document, onDelete, onMove, isDeleting }: DocumentCardProps) {
   const Icon = typeIcons[document.file_type] || File;
   const status = statusConfig[document.status as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = status.icon;
@@ -94,20 +97,33 @@ export default function DocumentCard({ document, onDelete, isDeleting }: Documen
             <span>{status.label}</span>
           </div>
 
-          {/* Delete Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(document.id)}
-            disabled={isDeleting}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-          >
-            {isDeleting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Trash2 className="w-4 h-4" />
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onMove && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onMove(document.id)}
+                className="text-muted-foreground hover:text-primary"
+                title="Déplacer"
+              >
+                <FolderInput className="w-4 h-4" />
+              </Button>
             )}
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(document.id)}
+              disabled={isDeleting}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
