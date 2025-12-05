@@ -4,10 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
 import UploadButton from '@/components/documents/UploadButton';
 import DocumentCard from '@/components/documents/DocumentCard';
+import FolderCard from '@/components/documents/FolderCard';
+import CreateFolderDialog from '@/components/documents/CreateFolderDialog';
+import MoveToFolderDialog from '@/components/documents/MoveToFolderDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, FolderOpen } from 'lucide-react';
+import { FileText, FolderOpen, FolderPlus, ChevronLeft } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -17,47 +21,70 @@ interface Document {
   file_path: string;
   status: string;
   created_at: string;
+  folder_id: string | null;
+}
+
+interface Folder {
+  id: string;
+  name: string;
+  created_at: string;
 }
 
 export default function Documents() {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [renameFolderData, setRenameFolderData] = useState<Folder | null>(null);
+  const [moveDocumentId, setMoveDocumentId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const fetchDocuments = useCallback(async () => {
+  const currentFolder = folders.find(f => f.id === currentFolderId);
+
+  const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    const [docsResult, foldersResult] = await Promise.all([
+      supabase
+        .from('documents')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('folders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true }),
+    ]);
 
-    if (!error && data) {
-      setDocuments(data);
+    if (!docsResult.error && docsResult.data) {
+      setDocuments(docsResult.data);
+    }
+    if (!foldersResult.error && foldersResult.data) {
+      setFolders(foldersResult.data);
     }
     setLoading(false);
   }, [user]);
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleDelete = async (id: string) => {
+  // Filter documents for current view
+  const currentDocuments = documents.filter(d => d.folder_id === currentFolderId);
+
+  const handleDeleteDocument = async (id: string) => {
     const doc = documents.find(d => d.id === id);
     if (!doc) return;
 
     setDeletingId(id);
 
     try {
-      // Delete from storage
       await supabase.storage.from('documents').remove([doc.file_path]);
-
-      // Delete from database
       const { error } = await supabase.from('documents').delete().eq('id', id);
-
       if (error) throw error;
 
       setDocuments(docs => docs.filter(d => d.id !== id));
@@ -76,21 +103,142 @@ export default function Documents() {
     setDeletingId(null);
   };
 
+  const handleCreateFolder = async (name: string) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('folders')
+      .insert({ name, user_id: user.id })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de créer le dossier',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setFolders(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    toast({ title: 'Dossier créé', description: `"${name}" a été créé.` });
+  };
+
+  const handleRenameFolder = async (name: string) => {
+    if (!renameFolderData) return;
+
+    const { error } = await supabase
+      .from('folders')
+      .update({ name })
+      .eq('id', renameFolderData.id);
+
+    if (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de renommer le dossier',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setFolders(prev =>
+      prev.map(f => (f.id === renameFolderData.id ? { ...f, name } : f))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setRenameFolderData(null);
+    toast({ title: 'Dossier renommé' });
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const { error } = await supabase.from('folders').delete().eq('id', folderId);
+
+    if (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de supprimer le dossier',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setFolders(prev => prev.filter(f => f.id !== folderId));
+    // Documents in this folder will have folder_id set to null due to ON DELETE SET NULL
+    setDocuments(prev => prev.map(d => d.folder_id === folderId ? { ...d, folder_id: null } : d));
+    if (currentFolderId === folderId) {
+      setCurrentFolderId(null);
+    }
+    toast({ title: 'Dossier supprimé', description: `"${folder.name}" a été supprimé.` });
+  };
+
+  const handleMoveDocument = async (targetFolderId: string | null) => {
+    if (!moveDocumentId) return;
+
+    const { error } = await supabase
+      .from('documents')
+      .update({ folder_id: targetFolderId })
+      .eq('id', moveDocumentId);
+
+    if (error) {
+      toast({
+        title: 'Erreur',
+        description: 'Impossible de déplacer le document',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDocuments(prev =>
+      prev.map(d => (d.id === moveDocumentId ? { ...d, folder_id: targetFolderId } : d))
+    );
+    setMoveDocumentId(null);
+    toast({ title: 'Document déplacé' });
+  };
+
+  const documentToMove = documents.find(d => d.id === moveDocumentId);
+
   return (
     <AppLayout>
       <div className="p-8 max-w-5xl mx-auto space-y-8 animate-fade-in">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold">Documents</h1>
-            <p className="text-muted-foreground mt-1">
-              Gérez vos documents et leur statut d'ingestion
-            </p>
+          <div className="flex items-center gap-3">
+            {currentFolderId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setCurrentFolderId(null)}
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+            )}
+            <div>
+              <h1 className="text-3xl font-semibold">
+                {currentFolder ? currentFolder.name : 'Documents'}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {currentFolder
+                  ? `${currentDocuments.length} document${currentDocuments.length !== 1 ? 's' : ''}`
+                  : 'Gérez vos documents et leur statut d\'ingestion'}
+              </p>
+            </div>
           </div>
-          <UploadButton onUploadComplete={fetchDocuments} />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateFolderOpen(true)}
+            >
+              <FolderPlus className="w-4 h-4 mr-2" />
+              Nouveau dossier
+            </Button>
+            <UploadButton onUploadComplete={fetchData} />
+          </div>
         </div>
 
-        {/* Documents List */}
+        {/* Content */}
         {loading ? (
           <div className="space-y-4">
             {Array(3).fill(0).map((_, i) => (
@@ -108,30 +256,64 @@ export default function Documents() {
               </Card>
             ))}
           </div>
-        ) : documents.length === 0 ? (
-          <Card className="border-dashed border-2 border-border/50">
-            <CardContent className="py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-                <FolderOpen className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium mb-2">Aucun document</h3>
-              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                Commencez par uploader vos premiers documents pour les interroger avec le chatbot.
-              </p>
-              <UploadButton onUploadComplete={fetchDocuments} />
-            </CardContent>
-          </Card>
         ) : (
-          <div className="space-y-3">
-            {documents.map(doc => (
-              <DocumentCard
-                key={doc.id}
-                document={doc}
-                onDelete={handleDelete}
-                isDeleting={deletingId === doc.id}
-              />
-            ))}
-          </div>
+          <>
+            {/* Folders (only show at root level) */}
+            {!currentFolderId && folders.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="text-sm font-medium text-muted-foreground">Dossiers</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {folders.map(folder => (
+                    <FolderCard
+                      key={folder.id}
+                      folder={folder}
+                      documentCount={documents.filter(d => d.folder_id === folder.id).length}
+                      onClick={() => setCurrentFolderId(folder.id)}
+                      onDelete={() => handleDeleteFolder(folder.id)}
+                      onRename={() => setRenameFolderData(folder)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Documents */}
+            {currentDocuments.length === 0 && (!currentFolderId ? folders.length === 0 : true) ? (
+              <Card className="border-dashed border-2 border-border/50">
+                <CardContent className="py-16 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                    <FolderOpen className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">
+                    {currentFolderId ? 'Dossier vide' : 'Aucun document'}
+                  </h3>
+                  <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                    {currentFolderId
+                      ? 'Déplacez des documents dans ce dossier pour les organiser.'
+                      : 'Commencez par uploader vos premiers documents pour les interroger avec le chatbot.'}
+                  </p>
+                  {!currentFolderId && <UploadButton onUploadComplete={fetchData} />}
+                </CardContent>
+              </Card>
+            ) : currentDocuments.length > 0 && (
+              <div className="space-y-3">
+                {!currentFolderId && folders.length > 0 && (
+                  <h2 className="text-sm font-medium text-muted-foreground">
+                    Documents (racine)
+                  </h2>
+                )}
+                {currentDocuments.map(doc => (
+                  <DocumentCard
+                    key={doc.id}
+                    document={doc}
+                    onDelete={handleDeleteDocument}
+                    onMove={(id) => setMoveDocumentId(id)}
+                    isDeleting={deletingId === doc.id}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Info Box */}
@@ -149,6 +331,32 @@ export default function Documents() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Folder Dialog */}
+      <CreateFolderDialog
+        open={createFolderOpen}
+        onOpenChange={setCreateFolderOpen}
+        onConfirm={handleCreateFolder}
+        mode="create"
+      />
+
+      {/* Rename Folder Dialog */}
+      <CreateFolderDialog
+        open={!!renameFolderData}
+        onOpenChange={(open) => !open && setRenameFolderData(null)}
+        onConfirm={handleRenameFolder}
+        initialName={renameFolderData?.name}
+        mode="rename"
+      />
+
+      {/* Move to Folder Dialog */}
+      <MoveToFolderDialog
+        open={!!moveDocumentId}
+        onOpenChange={(open) => !open && setMoveDocumentId(null)}
+        folders={folders}
+        currentFolderId={documentToMove?.folder_id ?? null}
+        onMove={handleMoveDocument}
+      />
     </AppLayout>
   );
 }
