@@ -111,6 +111,20 @@ export default function Documents() {
     setDeletingId(id);
 
     try {
+      // Call the n8n Delete webhook
+      await fetch('https://n8n.srv755107.hstgr.cloud/webhook/4b4feaa9-c576-4ed0-a1e8-d3aeb5afd9d3', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        mode: 'no-cors',
+        body: JSON.stringify({
+          user_id: user?.id,
+          file_path: doc.file_path,
+          file_name: doc.name,
+          document_id: doc.id,
+        }),
+      });
+
+      // Delete from storage and database
       await supabase.storage.from('documents').remove([doc.file_path]);
       const { error } = await supabase.from('documents').delete().eq('id', id);
       if (error) throw error;
