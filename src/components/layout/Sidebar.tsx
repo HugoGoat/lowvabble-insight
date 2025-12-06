@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/contexts/PermissionsContext';
+import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
@@ -11,10 +12,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  Shield
+  Shield,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
 
 const roleLabels: Record<string, string> = {
@@ -28,7 +30,12 @@ export default function Sidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { role, canManageUsers, canAccessSettings } = usePermissions();
+  const { resolvedTheme, setTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', show: true },
@@ -115,6 +122,28 @@ export default function Sidebar() {
             )}
           </div>
         )}
+        
+        {/* Theme Toggle */}
+        <Button
+          variant="ghost"
+          onClick={toggleTheme}
+          className={cn(
+            "w-full justify-start text-muted-foreground hover:text-foreground",
+            collapsed && "justify-center"
+          )}
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="w-5 h-5" />
+          ) : (
+            <Moon className="w-5 h-5" />
+          )}
+          {!collapsed && (
+            <span className="ml-3">
+              {resolvedTheme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+            </span>
+          )}
+        </Button>
+
         <Button
           variant="ghost"
           onClick={signOut}
