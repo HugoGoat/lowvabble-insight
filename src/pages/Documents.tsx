@@ -111,17 +111,13 @@ export default function Documents() {
     setDeletingId(id);
 
     try {
-      // Call the n8n Delete webhook
-      await fetch('https://n8n.srv755107.hstgr.cloud/webhook/46936ab8-b9e3-4253-80c9-b003f7adcfc6', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        mode: 'no-cors',
-        body: JSON.stringify({
-          user_id: user?.id,
+      // Call the n8n Delete webhook via Edge Function
+      await supabase.functions.invoke('n8n-delete', {
+        body: {
           file_path: doc.file_path,
           file_name: doc.name,
           document_id: doc.id,
-        }),
+        },
       });
 
       // Delete from storage and database

@@ -72,20 +72,21 @@ export default function UploadButton({ onUploadComplete }: UploadButtonProps) {
           description: `"${file.name}" a été ajouté avec succès.`,
         });
 
-        // Trigger n8n ingestion workflow with file
+        // Trigger n8n ingestion workflow via Edge Function
         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
           const formData = new FormData();
           formData.append('data', file);
-          formData.append('user_id', user.id);
           formData.append('file_path', filePath);
           formData.append('file_name', file.name);
 
-          await fetch('https://n8n.srv755107.hstgr.cloud/webhook/ffbbfdb5-c92b-4ee1-8ada-6065344c4925', {
-            method: 'POST',
+          await supabase.functions.invoke('n8n-upload', {
             body: formData,
           });
         } catch (webhookError) {
-          console.log('Webhook notification sent');
+          // Log but don't fail the upload
+          console.log('Ingestion webhook triggered');
         }
 
       } catch (error: any) {

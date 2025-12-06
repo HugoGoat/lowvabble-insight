@@ -153,21 +153,26 @@ export default function Chat() {
         content: m.content,
       }));
 
-      const response = await fetch('https://n8n.srv755107.hstgr.cloud/webhook/baa3f90a-7116-440a-9d5f-06e44505094e', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: content,
-          user_id: user.id,
-          conversation_history: conversationHistory,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur de communication avec le chatbot');
+      // Validate message length client-side
+      const MAX_MESSAGE_LENGTH = 4000;
+      if (content.length > MAX_MESSAGE_LENGTH) {
+        throw new Error(`Message trop long. Maximum ${MAX_MESSAGE_LENGTH} caractères.`);
       }
 
-      const data = await response.json();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await supabase.functions.invoke('n8n-chat', {
+        body: {
+          text: content,
+          conversation_history: conversationHistory.slice(-50), // Limit history
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Erreur de communication avec le chatbot');
+      }
+
+      const data = response.data;
       
       let responseContent = '';
       if (typeof data === 'string') {

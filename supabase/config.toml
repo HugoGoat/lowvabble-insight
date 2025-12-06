@@ -1,1 +1,10 @@
 project_id = "vmlhieyfrhnyjljgkisn"
+
+[functions.n8n-chat]
+verify_jwt = false
+
+[functions.n8n-upload]
+verify_jwt = false
+
+[functions.n8n-delete]
+verify_jwt = false
