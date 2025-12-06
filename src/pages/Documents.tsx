@@ -112,7 +112,7 @@ export default function Documents() {
 
     try {
       // Call the n8n Delete webhook
-      await fetch('https://n8n.srv755107.hstgr.cloud/webhook/4b4feaa9-c576-4ed0-a1e8-d3aeb5afd9d3', {
+      await fetch('https://n8n.srv755107.hstgr.cloud/webhook/46936ab8-b9e3-4253-80c9-b003f7adcfc6', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         mode: 'no-cors',
