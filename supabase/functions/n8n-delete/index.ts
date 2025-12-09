@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const N8N_DELETE_WEBHOOK = 'https://n8n.srv755107.hstgr.cloud/webhook/46936ab8-b9e3-4253-80c9-b003f7adcfc6';
+const N8N_DELETE_WEBHOOK = 'https://n8n.flowfyr.com/webhook/46936ab8-b9e3-4253-80c9-b003f7adcfc6';
 
 serve(async (req) => {
   // Handle CORS preflight
