@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const N8N_CHAT_WEBHOOK = 'https://n8n.srv755107.hstgr.cloud/webhook/baa3f90a-7116-440a-9d5f-06e44505094e';
+const N8N_CHAT_WEBHOOK = 'https://n8n.flowfyr.com/webhook/baa3f90a-7116-440a-9d5f-06e44505094e';
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_HISTORY_MESSAGES = 50;
 

@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const N8N_UPLOAD_WEBHOOK = 'https://n8n.srv755107.hstgr.cloud/webhook/ffbbfdb5-c92b-4ee1-8ada-6065344c4925';
+const N8N_UPLOAD_WEBHOOK = 'https://n8n.flowfyr.com/webhook/ffbbfdb5-c92b-4ee1-8ada-6065344c4925';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 serve(async (req) => {
